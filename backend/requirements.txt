@@ -7,3 +7,4 @@ google-auth-oauthlib
 google-api-python-client
 supabase==2.3.4
 python-jose
+google-generativeai
