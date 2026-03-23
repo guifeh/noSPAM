@@ -3,6 +3,8 @@ from googleapiclient.discovery import build
 from google.oauth2.credentials import Credentials
 import os
 
+from app.routes.auth import SCOPES
+
 router = APIRouter()
 
 def get_gmail_service(token: str):
@@ -10,13 +12,17 @@ def get_gmail_service(token: str):
         token=token,
         client_id=os.getenv("GOOGLE_CLIENT_ID"),
         client_secret=os.getenv("GOOGLE_CLIENT_SECRET"),
-        token_uri="https://oauth2.googleapis.com/token"
+        token_uri="https://oauth2.googleapis.com/token",
+        scopes=SCOPES,
     )
     return build("gmail", "v1", credentials=creds)
 
 @router.get("/gmail/emails")
 def listar_emails(authorization: str = Header(...)):
-    token = authorization.replace("Bearer ", "")
+    # Header Authorization pode vir como "Bearer <token>" (case-insensitive).
+    token = authorization
+    if isinstance(authorization, str) and authorization.lower().startswith("bearer "):
+        token = authorization[7:]
     try:
         service = get_gmail_service(token)
         result = service.users().messages().list(
@@ -53,12 +59,16 @@ def listar_emails(authorization: str = Header(...)):
 
 @router.delete("/gmail/emails")
 def deletar_emails(ids: list[str], authorization: str = Header(...)):
-    token = authorization.replace("Bearer ", "")
+    # Header Authorization pode vir como "Bearer <token>" (case-insensitive).
+    token = authorization
+    if isinstance(authorization, str) and authorization.lower().startswith("bearer "):
+        token = authorization[7:]
     try:
         service = get_gmail_service(token)
-        service.users().messages().batchDelete(
+        # Move para lixeira (TRASH) usando gmail.modify.
+        service.users().messages().batchModify(
             userId="me",
-            body={"ids":ids}
+            body={"ids": ids, "addLabelIds": ["TRASH"]},
         ).execute()
         return {"deletados": len(ids), "ids": ids}
     except Exception as e:

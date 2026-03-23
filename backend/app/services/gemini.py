@@ -1,8 +1,13 @@
-from google import genai
+import google.generativeai as genai
 import os
 import json
 
-client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+
+# gemini-1.5-* foi descontinuado na API; use um modelo atual (grátis no AI Studio com cota).
+# Sobrescreva com GEMINI_MODEL no .env se quiser (ex.: gemini-2.5-flash-lite, gemini-flash-latest).
+_DEFAULT_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+_model = genai.GenerativeModel(_DEFAULT_MODEL)
 
 def classificar_emails(emails: list[dict], contexto: str) -> list[dict]:
     lista = "\n".join([
@@ -29,10 +34,7 @@ Emails:
 {lista}
 """
 
-    response = client.models.generate_content(
-        model="gemini-2.0-flash-lite",
-        contents=prompt
-    )
+    response = _model.generate_content(prompt)
 
     text = response.text.strip()
 

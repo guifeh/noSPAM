@@ -7,10 +7,8 @@ router = APIRouter()
 
 _flows = {}
 
-SCOPES = [
-    "https://www.googleapis.com/auth/gmail.readonly",
-    "https://www.googleapis.com/auth/gmail.modify"
-]
+# gmail.modify já inclui leitura + apagar/mover mensagens (necessário para batchDelete no /scan).
+SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
 
 def make_flow():
     return Flow.from_client_config(
@@ -30,7 +28,12 @@ def make_flow():
 @router.get("/auth/login")
 def login():
     flow = make_flow()
-    auth_url, state = flow.authorization_url(prompt="consent")
+    # consent: força a tela de permissões de novo (útil ao mudar SCOPES ou token antigo só com readonly).
+    # Sem include_granted_scopes: evita modo incremental que às vezes mantém só escopos antigos (ex.: só readonly).
+    auth_url, state = flow.authorization_url(
+        prompt="consent",
+        access_type="offline",
+    )
     _flows[state] = flow 
     return RedirectResponse(auth_url)
 
@@ -41,5 +44,11 @@ def callback(code: str, state: str):
         raise HTTPException(status_code=400, detail="State inválido ou expirado")
     
     flow.fetch_token(code=code)
-    token = flow.credentials.token
-    return {"access_token": token, "token_type": "bearer"}
+    creds = flow.credentials
+    granted = list(creds.scopes) if creds.scopes else []
+    return {
+        "access_token": creds.token,
+        "token_type": "bearer",
+        # Confira se aparece https://www.googleapis.com/auth/gmail.modify — senão o Gmail vai dar 403 no batchDelete.
+        "granted_scopes": granted,
+    }
