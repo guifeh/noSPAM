@@ -60,16 +60,17 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
 
   if (msg.type === "SCAN") {
-    const { contexto, maxEmails } = msg
-    
-    // Recupera o token de forma segura via background (isolado da UI)
-    chrome.storage.local.get(["token"], ({ token }) => {
-      doScan(token, contexto, maxEmails)
-        .then((data) => sendResponse({ ok: true, data }))
-        .catch((err) => sendResponse({ ok: false, error: err.message }))
-    })
-    return true
-  }
+  const { contexto, maxEmails } = msg
+  chrome.storage.local.get(["token"], async ({ token }) => {
+    try {
+      const data = await doScan(token, contexto, maxEmails)
+      sendResponse({ ok: true, data })
+    } catch (err) {
+      sendResponse({ ok: false, error: err.message })
+    }
+  })
+  return true
+}
 
   if (msg.type === "CONFIRM_DELETE") {
     const { ids } = msg
@@ -82,7 +83,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             Authorization: `Bearer ${token}`, 
             "Content-Type": "application/json" 
           },
-          body: JSON.stringify({ ids })
+          body: JSON.stringify(ids)
         })
         if (!res.ok) throw new Error(await res.text())
         const data = await res.json()

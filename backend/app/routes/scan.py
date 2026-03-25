@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Header, HTTPException
 from app.routes.gmail import get_gmail_service
 from app.services.gemini import classificar_emails
-import httpx
+from app.services.supabase import salvar_varredura
 
 router = APIRouter()
 
@@ -10,43 +10,22 @@ def _token_from_auth_header(authorization: str) -> str:
         return authorization[7:]
     return authorization
 
-def _tokeninfo_scope(token: str) -> str | None:
-    try:
-        data = httpx.get(
-            "https://oauth2.googleapis.com/tokeninfo",
-            params={"access_token": token},
-            timeout=10.0,
-        ).json()
-        scope = data.get("scope", "")
-        return scope if isinstance(scope, str) else None
-    except Exception:
-        return None
-
 @router.post("/scan")
-def varrer_emails(contexto:str, max_emails: int = 20, authorization: str = Header(...)):
+def varrer_emails(contexto: str, authorization: str = Header(...), max_emails: int = 20):
     token = _token_from_auth_header(authorization)
     try:
-        if max_emails not in (10, 20, 30, 40, 50):
-            raise HTTPException(status_code=422, detail="max_emails deve ser 10, 20, 30, 40 ou 50")
-
-        granted_scope = _tokeninfo_scope(token)
-        if granted_scope is not None and "https://www.googleapis.com/auth/gmail.modify" not in granted_scope:
-            raise HTTPException(
-                status_code=403,
-                detail={
-                    "error": "access_token_sem_gmail_modify",
-                    "tokeninfo_scope": granted_scope,
-                },
-            )
-
         service = get_gmail_service(token)
+
+        profile = service.users().getProfile(userId="me").execute()
+        user_email = profile.get("emailAddress", "desconhecido")
+
         result = service.users().messages().list(
             userId="me",
             maxResults=max_emails,
             q="is:unread"
         ).execute()
 
-        messages = result.get("messages",[])
+        messages = result.get("messages", [])
         emails = []
 
         for msg in messages:
@@ -62,23 +41,30 @@ def varrer_emails(contexto:str, max_emails: int = 20, authorization: str = Heade
             sender  = next((h["value"] for h in headers if h["name"] == "From"), "desconhecido")
             emails.append({"id": msg["id"], "subject": subject, "sender": sender})
 
-        #gemini que se vire
         classificados = classificar_emails(emails, contexto)
 
-        # Move para lixeira (TRASH). batchDelete exige scope mais forte (mail.google.com).
         deletar = [e["id"] for e in classificados if e["acao"] == "DELETAR"]
         if deletar:
             service.users().messages().batchModify(
                 userId="me",
                 body={"ids": deletar, "addLabelIds": ["TRASH"]},
             ).execute()
-        
-        return {
+
+        resultado = {
             "total_analisados": len(emails),
             "deletados": len(deletar),
-            "resultados": classificados #inclui o MANTER e CONFITMAR tbm
+            "resultados": classificados
         }
-    
+
+        # salva log no Supabase apenas se deletou algo
+        try:
+            if resultado["deletados"] > 0:
+                salvar_varredura(user_email, contexto, resultado)
+        except Exception as e:
+            print(f"[WARN] Falha ao salvar log no Supabase: {e}")
+
+        return resultado
+
     except HTTPException:
         raise
     except Exception as e:
