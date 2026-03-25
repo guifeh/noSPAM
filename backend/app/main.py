@@ -10,12 +10,10 @@ from app.routes.scan import router as scan_router
 
 app = FastAPI(title="noSPAM API")
 
-# Protegendo o Backend contra ataques CSRF e requisições maliciosas. 
-# Permitindo, por padrão para a POC, que origens do Chrome chamem a API, mas 
-# restringindo demais origens. O ideal em prod para essa POC é passar uma ENV.
 origins = [
     "http://localhost:8000",
-    "chrome-extension://*", # Idealmente id específico da extensão após publicação
+    "https://nospam-backend.onrender.com",
+    "chrome-extension://*", 
 ]
 
 app.add_middleware(
