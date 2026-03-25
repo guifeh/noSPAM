@@ -70,4 +70,27 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     })
     return true
   }
+
+  if (msg.type === "CONFIRM_DELETE") {
+    const { ids } = msg
+    
+    chrome.storage.local.get(["token"], async ({ token }) => {
+      try {
+        const res = await fetch(`${BACKEND_URL}/gmail/emails`, {
+          method: "DELETE",
+          headers: { 
+            Authorization: `Bearer ${token}`, 
+            "Content-Type": "application/json" 
+          },
+          body: JSON.stringify({ ids })
+        })
+        if (!res.ok) throw new Error(await res.text())
+        const data = await res.json()
+        sendResponse({ ok: true, data })
+      } catch (error) {
+        sendResponse({ ok: false, error: error.message })
+      }
+    })
+    return true
+  }
 })

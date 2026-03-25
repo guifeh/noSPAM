@@ -23,3 +23,8 @@ export function logout() {
 export function scan(contexto, maxEmails = 20) {
   return sendMsg({ type: "SCAN", contexto, maxEmails })
 }
+
+// Confirma exclusão de emails
+export function confirmarDelete(ids) {
+  return sendMsg({ type: "CONFIRM_DELETE", ids })
+}
