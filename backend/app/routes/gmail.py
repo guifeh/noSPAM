@@ -18,7 +18,7 @@ def get_gmail_service(token: str):
     return build("gmail", "v1", credentials=creds)
 
 @router.get("/gmail/emails")
-def listar_emails(authorization: str = Header(...)):
+def listar_emails(max_emails: int = 20, authorization: str = Header(...)):
     # Header Authorization pode vir como "Bearer <token>" (case-insensitive).
     token = authorization
     if isinstance(authorization, str) and authorization.lower().startswith("bearer "):
@@ -27,7 +27,7 @@ def listar_emails(authorization: str = Header(...)):
         service = get_gmail_service(token)
         result = service.users().messages().list(
             userId="me",
-            maxResults=20,
+            maxResults=max_emails,
             q="is:unread"
         ).execute()
 

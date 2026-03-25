@@ -23,9 +23,12 @@ def _tokeninfo_scope(token: str) -> str | None:
         return None
 
 @router.post("/scan")
-def varrer_emails(contexto:str, authorization: str = Header(...)):
+def varrer_emails(contexto:str, max_emails: int = 20, authorization: str = Header(...)):
     token = _token_from_auth_header(authorization)
     try:
+        if max_emails not in (10, 20, 30, 40, 50):
+            raise HTTPException(status_code=422, detail="max_emails deve ser 10, 20, 30, 40 ou 50")
+
         granted_scope = _tokeninfo_scope(token)
         if granted_scope is not None and "https://www.googleapis.com/auth/gmail.modify" not in granted_scope:
             raise HTTPException(
@@ -39,7 +42,7 @@ def varrer_emails(contexto:str, authorization: str = Header(...)):
         service = get_gmail_service(token)
         result = service.users().messages().list(
             userId="me",
-            maxResults=20,
+            maxResults=max_emails,
             q="is:unread"
         ).execute()
 

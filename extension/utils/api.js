@@ -1,5 +1,3 @@
-const BACKEND_URL = "http://localhost:8000"
-
 // Envia mensagem pro background service worker
 function sendMsg(msg) {
   return new Promise((resolve, reject) => {
@@ -21,16 +19,7 @@ export function logout() {
   return sendMsg({ type: "LOGOUT" })
 }
 
-// Dispara varredura
-export function scan(token, contexto) {
-  return sendMsg({ type: "SCAN", token, contexto })
-}
-
-// Lista emails (chamada direta, sem passar pelo background)
-export async function getEmails(token) {
-  const res = await fetch(`${BACKEND_URL}/gmail/emails`, {
-    headers: { Authorization: `Bearer ${token}` }
-  })
-  if (!res.ok) throw new Error(await res.text())
-  return res.json()
+// Dispara varredura (o background usará o seu próprio token salvo pra isso de forma isolada e segura)
+export function scan(contexto, maxEmails = 20) {
+  return sendMsg({ type: "SCAN", contexto, maxEmails })
 }
