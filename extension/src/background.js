@@ -1,4 +1,4 @@
-const BACKEND_URL = "http://localhost:8000"
+const BACKEND_URL = "https://nospam-backend.onrender.com"
 
 // Faz login com Google e retorna o token
 async function doLogin() {
